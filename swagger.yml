@@ -1,0 +1,22 @@
+openapi: 3.0.0
+info:
+    title: A weather app
+    description: Test123
+    version: 1.0.0
+
+servers:
+  - url: https://example.io/v1
+
+paths:
+    /now:
+        get:
+            description: Returns weather at location by zip
+            parameters:
+                - name: zip
+                  in: query
+                  description: Limits the number of items on a pageschema
+                  schema:
+                      type: integer
+            responses:
+                '200':
+                    description: Ok
