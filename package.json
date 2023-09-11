@@ -2,17 +2,23 @@
   "name": "weather-app",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "index.ts",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "api-docs": "openapi build-docs swagger.yml --output=templates/swagger.html"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@types/node": "^20.6.0",
     "prettier": "^3.0.3",
     "prettier-plugin-tailwindcss": "^0.5.4",
     "stylelint": "^15.10.3",
     "stylelint-config-recommended": "^13.0.0"
+  },
+  "dependencies": {
+    "@pulumi/azure": "^5.49.0",
+    "@pulumi/azure-native": "^2.6.0",
+    "@pulumi/pulumi": "^3.81.0"
   }
 }

@@ -1,0 +1,164 @@
+trigger:
+- main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  registryName: 'myRegistry.azurecr.io'
+  dockerfilePath: '**/Dockerfile'
+  tag: '$(Build.BuildId)'
+
+stages:
+- stage: BuildAndPush
+  jobs:  
+  - job: Build
+    steps:
+    - script: |
+        az login --service-principal -u $(servicePrincipalId) -p $(servicePrincipalKey) --tenant $(tenantId)
+        az acr build --registry $(registryName) --image my-api:$(tag) .
+      env:
+        servicePrincipalId: $(servicePrincipalId)
+        servicePrincipalKey: $(servicePrincipalKey)
+        tenantId: $(tenantId)
+
+- stage: Deploy
+  jobs:
+  - job: Deploy
+    steps:
+    - checkout: none
+    - script: |
+        az login --service-principal -u $(servicePrincipalId) -p $(servicePrincipalKey) --tenant $(tenantId)
+        pulumi login --cloud-url $(PULUMI_BACKEND_URL)
+        pulumi stack select $(PULUMI_STACK)
+        pulumi config set imageTag $(tag)
+        pulumi up --yes
+      env:
+        servicePrincipalId: $(servicePrincipalId)
+        servicePrincipalKey: $(servicePrincipalKey)
+        tenantId: $(tenantId)
+        PULUMI_BACKEND_URL: $(PULUMI_BACKEND_URL)
+        PULUMI_STACK: $(PULUMI_STACK)
+In the above YAML:
+
+Adjust the variables.registryName to match your Azure Container Registry name.
+We defined two stages: one for building and pushing the Docker image, and another for deploying using Pulumi.
+Update the az acr build and az login commands with your Azure Container Registry name and necessary details.
+servicePrincipalId, servicePrincipalKey, tenantId, PULUMI_BACKEND_URL, and PULUMI_STACK are secrets that you should store securely in Azure DevOps and pass as environment variables.
+Step 4: Update Your Pulumi Script
+Update your Pulumi script to get the image tag from the config and use it in your App Service:
+
+typescript
+Copy code
+const config = new pulumi.Config();
+const imageTag = config.require("imageTag");
+
+// ...
+
+const app = new azure.appservice.AppService("my-app", {
+    // ...
+    siteConfig: {
+        alwaysOn: true,
+        linuxFxVersion: `DOCKER|${registryLoginServer}/my-api:${imageTag}`, 
+    },
+    // ...
+});
+Step 5: Set up Azure DevOps Pipeline
+Create a new pipeline in Azure DevOps and select the repository where your code resides.
+Select the azure-pipelines.yml file as your pipeline configuration.
+Add the necessary secrets (like servicePrincipalId, servicePrincipalKey, etc.) as variable groups in your pipeline or store them securely in Azure Key Vault.
+Step 6: Run Your Pipeline
+Once everything is set up, run your pipeline. It should build your Docker image, push it to your registry, and deploy your application using Pulumi.
+
+Remember, the Azure Container Registry isn't free, and you'll incur costs using it. Check Azure pricing for details. Adjust configurations as needed to suit your project requirements.
+
+
+
+
+User
+Is it possible to use a free container registry?
+ChatGPT
+As of my last update in September 2021, Azure Container Registry does not offer a free tier. However, other services do offer free tiers or free private repositories that you can utilize. Here are a few options:
+
+1. Docker Hub
+Docker Hub offers one free private repository and unlimited public repositories. You can sign up here.
+
+After signing up, you can create a repository and use Docker CLI to log in, tag your image appropriately, and then push your image. Here is how you can do it:
+
+sh
+Copy code
+docker login --username=yourhubusername --email=youremail@company.com
+docker tag your-image:your-tag yourhubusername/your-repo:your-tag
+docker push yourhubusername/your-repo:your-tag
+In your Pulumi script, you would reference your Docker Hub image like this:
+
+typescript
+Copy code
+const app = new azure.appservice.AppService("my-app", {
+    // ...
+    siteConfig: {
+        alwaysOn: true,
+        linuxFxVersion: "DOCKER|yourhubusername/your-repo:your-tag", 
+    },
+    // ...
+});
+2. GitHub Packages
+GitHub offers package hosting, including Docker containers, through GitHub Packages. This would allow you to keep your source code and Docker images in one place. You can find more information here.
+
+3. GitLab Container Registry
+Similar to GitHub, GitLab offers a
+
+
+
+
+User
+Can you help me write the pipeline for pushing an image to docker hub. And also the pipeline file to push the image to container registry and the deploy it to the app service we created previously
+ChatGPT
+Certainly! Below, I'll guide you through creating a pipeline that builds a Docker image from your Golang API's source code, pushes it to Docker Hub, and then deploys it to the Azure App Service we set up previously.
+
+Step 1: Prepare Your Environment
+Ensure you have:
+
+A Docker Hub account and a repository created for your Golang API.
+An Azure DevOps account and a project created.
+Step 2: Create Azure DevOps YAML Pipeline
+Create a new YAML pipeline file (e.g., azure-pipelines.yml) in your repository with the following content:
+
+yaml
+Copy code
+trigger:
+- main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  dockerHubRepository: 'yourdockerhubusername/yourrepositoryname'
+  dockerHubTag: '$(Build.BuildId)'
+
+stages:
+- stage: BuildAndPush
+  jobs:  
+  - job: Build
+    steps:
+    - script: docker build -t $(dockerHubRepository):$(dockerHubTag) .
+    - script: |
+        docker login -u $(dockerHubUsername) -p $(dockerHubPassword)
+        docker push $(dockerHubRepository):$(dockerHubTag)
+      env:
+        dockerHubUsername: $(dockerHubUsername)
+        dockerHubPassword: $(dockerHubPassword)
+
+- stage: Deploy
+  jobs:
+  - job: Deploy
+    steps:
+    - checkout: none
+    - script: |
+        pulumi login --cloud-url $(PULUMI_BACKEND_URL)
+        pulumi stack select $(PULUMI_STACK)
+        pulumi config set dockerHubTag $(dockerHubTag)
+        pulumi up --yes
+      env:
+        PULUMI_BACKEND_URL: $(PULUMI_BACKEND_URL)
+        PULUMI_STACK: $(PULUMI_STACK)

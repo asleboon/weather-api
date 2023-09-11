@@ -1,0 +1,4 @@
+name: iac
+runtime: nodejs
+description: Pulumi IAC for weather API
+
